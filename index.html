@@ -6,8 +6,19 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id="glcanvas"></canvas>
+    <!-- In Webflow: this is your shader_component div with the Embed element inside -->
+    <div class="shader_component" style="position:relative; width:100vw; height:100vh; overflow:hidden;"
+         data-density-dissipation="0.99"
+         data-velocity-dissipation="1"
+         data-pressure="0.9"
+         data-splat-radius="0.4"
+         data-density-intensity="0.012"
+         data-mouse-force="10"
+         data-smoke-brightness="1"
+         data-show-gui="true">
+        <canvas id="glcanvas"></canvas>
+    </div>
     <script src="dat.gui.min.js"></script>
     <script src="script.js"></script>
 </body>
-</html> 
+</html>

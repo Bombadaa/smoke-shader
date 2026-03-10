@@ -4,13 +4,14 @@ body {
     background-color: #0a0a0a;
 }
 
-canvas {
+/* Canvas fills its parent container — works in Webflow and standalone */
+canvas#glcanvas {
     display: block;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
 }
 
-/* Optional: Change checkbox color */
+/* Optional: Change dat.gui checkbox color */
 .dg .c input[type=checkbox]:checked:before {
     color: #30d56f;
 }

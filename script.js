@@ -1,11 +1,22 @@
 'use strict';
 
-const canvas = document.getElementById('glcanvas');
-canvas.width = canvas.clientWidth;
-canvas.height = canvas.clientHeight;
+(function () {
 
-// Define default config values separately
-const defaultConfig = {
+// ============================================================
+// CONFIGURATION — Edit these defaults or use data- attributes
+// on the container element in Webflow to override them.
+//
+// In Webflow, add Custom Attributes to the parent div:
+//   data-density-dissipation="0.99"
+//   data-velocity-dissipation="1"
+//   data-pressure="0.9"
+//   data-splat-radius="0.4"
+//   data-density-intensity="0.012"
+//   data-mouse-force="10"
+//   data-smoke-brightness="1"
+//   data-show-gui="false"
+// ============================================================
+const DEFAULTS = {
     DENSITY_DISSIPATION: 0.99,
     VELOCITY_DISSIPATION: 1.0,
     PRESSURE: 0.9,
@@ -15,7 +26,37 @@ const defaultConfig = {
     SMOKE_BRIGHTNESS: 1.0
 };
 
-// Apply defaults initially to the main config
+// Find the canvas — supports both Webflow embed and standalone usage
+const canvas = document.getElementById('glcanvas');
+if (!canvas) return;
+
+const container = canvas.parentElement;
+
+// Read data- attributes from container to override defaults
+function readDataAttr(name, fallback) {
+    if (!container) return fallback;
+    const val = container.getAttribute('data-' + name);
+    return val !== null ? parseFloat(val) : fallback;
+}
+
+const defaultConfig = {
+    DENSITY_DISSIPATION: readDataAttr('density-dissipation', DEFAULTS.DENSITY_DISSIPATION),
+    VELOCITY_DISSIPATION: readDataAttr('velocity-dissipation', DEFAULTS.VELOCITY_DISSIPATION),
+    PRESSURE: readDataAttr('pressure', DEFAULTS.PRESSURE),
+    SPLAT_RADIUS: readDataAttr('splat-radius', DEFAULTS.SPLAT_RADIUS),
+    DENSITY_INTENSITY: readDataAttr('density-intensity', DEFAULTS.DENSITY_INTENSITY),
+    MOUSE_FORCE: readDataAttr('mouse-force', DEFAULTS.MOUSE_FORCE),
+    SMOKE_BRIGHTNESS: readDataAttr('smoke-brightness', DEFAULTS.SMOKE_BRIGHTNESS)
+};
+
+const showGui = container
+    ? (container.getAttribute('data-show-gui') || 'true') !== 'false'
+    : true;
+
+// Size canvas to container
+canvas.width = canvas.clientWidth;
+canvas.height = canvas.clientHeight;
+
 let config = {
     SIM_RESOLUTION: 128,
     DYE_RESOLUTION: 1024,
@@ -24,14 +65,14 @@ let config = {
     VELOCITY_DISSIPATION: defaultConfig.VELOCITY_DISSIPATION,
     PRESSURE: defaultConfig.PRESSURE,
     PRESSURE_ITERATIONS: 20,
-    CURL: 0, // No curl for simpler smoke
+    CURL: 0,
     SPLAT_RADIUS: defaultConfig.SPLAT_RADIUS,
-    SPLAT_FORCE: 1.0, // Keep this low, main force comes from mouse delta scaling
+    SPLAT_FORCE: 1.0,
     DENSITY_INTENSITY: defaultConfig.DENSITY_INTENSITY,
     MOUSE_FORCE: defaultConfig.MOUSE_FORCE,
     SMOKE_BRIGHTNESS: defaultConfig.SMOKE_BRIGHTNESS,
-    SHADING: false, // No complex shading
-    COLORFUL: false, // Black and white
+    SHADING: false,
+    COLORFUL: false,
     COLOR_UPDATE_SPEED: 10,
     PAUSED: false,
     BACK_COLOR: { r: 0, g: 0, b: 0 },
@@ -45,7 +86,7 @@ let config = {
     SUNRAYS: false,
     SUNRAYS_RESOLUTION: 196,
     SUNRAYS_WEIGHT: 1.0,
-}
+};
 
 function pointerPrototype () {
     this.id = -1;
@@ -57,7 +98,7 @@ function pointerPrototype () {
     this.deltaY = 0;
     this.down = false;
     this.moved = false;
-    this.color = [30, 30, 30]; // White/Gray smoke
+    this.color = [30, 30, 30];
 }
 
 let pointers = [];
@@ -202,13 +243,11 @@ function createProgram (vertexShader, fragmentShader) {
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
 
-    // Bind attribute location before linking
-    gl.bindAttribLocation(program, 0, 'aPosition'); // Ensure aPosition is at location 0
+    gl.bindAttribLocation(program, 0, 'aPosition');
 
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        // Log error explicitly to console
         console.error("Program Link Error:", gl.getProgramInfoLog(program));
         throw gl.getProgramInfoLog(program);
     }
@@ -234,13 +273,12 @@ function compileShader (type, source, keywords) {
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        // Log error explicitly to console
         console.error(`Shader Compile Error in ${type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment'} Shader:`, gl.getShaderInfoLog(shader));
         throw gl.getShaderInfoLog(shader);
     }
 
     return shader;
-};
+}
 
 function addKeywords (source, keywords) {
     if (keywords == null) return source;
@@ -433,15 +471,13 @@ const displayShaderSource = `
     uniform sampler2D uTexture;
 
     void main () {
-        // Simple display of density (grayscale)
         float density = texture2D(uTexture, vUv).r;
-        // Set alpha based on density
         gl_FragColor = vec4(vec3(density), density);
     }
 `;
 
-let dye;                  // Stores density
-let velocity;             // Stores velocity
+let dye;
+let velocity;
 let divergence;
 let pressure;
 
@@ -460,7 +496,7 @@ const divergenceProgram = new Program(baseVertexShader, divergenceShader);
 const pressureProgram = new Program(baseVertexShader, pressureShader);
 const gradienSubtractProgram = new Program(baseVertexShader, gradientSubtractShader);
 const displayMaterial = new Material(baseVertexShader, displayShaderSource);
-displayMaterial.setKeywords([]); // Initialize the material's program
+displayMaterial.setKeywords([]);
 
 function initFramebuffers () {
     let simRes = getResolution(config.SIM_RESOLUTION);
@@ -494,7 +530,6 @@ function initFramebuffers () {
 
     divergence = createFBO      (simWidth, simHeight, r.internalFormat, r.format, texType, gl.NEAREST);
     pressure   = createDoubleFBO(simWidth, simHeight, r.internalFormat, r.format, texType, gl.NEAREST);
-
 }
 
 function getResolution (resolution) {
@@ -568,17 +603,11 @@ function createDoubleFBO (w, h, internalFormat, format, type, param) {
             fbo1 = fbo2;
             fbo2 = temp;
         }
-    }
+    };
 }
 
 function resizeFBO (target, w, h, internalFormat, format, type, param) {
     let newFBO = createFBO(w, h, internalFormat, format, type, param);
-    // Need a copy program if resizing is intended during runtime, but this basic example doesn't implement it.
-    // For simplicity, we'll just return the new FBO without copying content.
-    // If you need resizing with content preservation, implement a copy shader and program.
-    // copyProgram.bind();
-    // gl.uniform1i(copyProgram.uniforms.uTexture, target.attach(0));
-    // blit(newFBO.fbo);
     gl.deleteFramebuffer(target.fbo);
     gl.deleteTexture(target.texture);
     return newFBO;
@@ -595,14 +624,11 @@ function resizeDoubleFBO (target, w, h, internalFormat, format, type, param) {
 }
 
 function blit (target) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); // Use a dummy buffer for vertex attributes
-    // Setup vertex attribute pointer for aPosition (location 0)
-    // This assumes your baseVertexShader uses `attribute vec2 aPosition;` at location 0
-    const positionAttributeLocation = 0; // Explicitly use location 0
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    const positionAttributeLocation = 0;
     gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(positionAttributeLocation);
 
-    // Define vertices for a full-screen quad
     const vertices = new Float32Array([
         -1.0, -1.0,
          1.0, -1.0,
@@ -611,17 +637,16 @@ function blit (target) {
     ]);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, target); // Target can be null for screen
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    gl.disableVertexAttribArray(positionAttributeLocation); // Clean up
-    gl.bindBuffer(gl.ARRAY_BUFFER, null); // Unbind buffer
+    gl.disableVertexAttribArray(positionAttributeLocation);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
 }
 
 initFramebuffers();
 
 let lastTime = Date.now();
-let colorUpdateTimer = 0.0;
 
 update();
 
@@ -629,7 +654,7 @@ function update () {
     const dt = calcDeltaTime();
     if (resizeCanvas()) initFramebuffers();
 
-    applyInputs(); // Apply inputs before updating physics/dye
+    applyInputs();
     updateVelocity(dt);
     updateDye(dt);
 
@@ -658,7 +683,6 @@ function resizeCanvas () {
 function updateVelocity (dt) {
     gl.viewport(0, 0, simWidth, simHeight);
 
-    // Advection
     advectionProgram.bind();
     gl.uniform2f(advectionProgram.uniforms.texelSize, dx, dy);
     gl.uniform1i(advectionProgram.uniforms.uVelocity, velocity.read.attach(0));
@@ -668,16 +692,14 @@ function updateVelocity (dt) {
     blit(velocity.write.fbo);
     velocity.swap();
 
-    // Divergence
     divergenceProgram.bind();
     gl.uniform2f(divergenceProgram.uniforms.texelSize, dx, dy);
     gl.uniform1i(divergenceProgram.uniforms.uVelocity, velocity.read.attach(0));
     blit(divergence.fbo);
 
-    // Pressure Calculation (Jacobi iterations)
     clearProgram.bind();
     gl.uniform1i(clearProgram.uniforms.uTexture, pressure.read.attach(0));
-    gl.uniform1f(clearProgram.uniforms.value, config.PRESSURE); // Use pressure value for initial clear? Might need 0.
+    gl.uniform1f(clearProgram.uniforms.value, config.PRESSURE);
     blit(pressure.write.fbo);
     pressure.swap();
 
@@ -690,7 +712,6 @@ function updateVelocity (dt) {
         pressure.swap();
     }
 
-    // Gradient Subtract
     gradienSubtractProgram.bind();
     gl.uniform2f(gradienSubtractProgram.uniforms.texelSize, dx, dy);
     gl.uniform1i(gradienSubtractProgram.uniforms.uPressure, pressure.read.attach(0));
@@ -702,9 +723,7 @@ function updateVelocity (dt) {
 function updateDye (dt) {
     gl.viewport(0, 0, dyeWidth, dyeHeight);
 
-    // Advection of Dye
     advectionProgram.bind();
-    // Note: Using dye texture resolution for texel size in dye advection
     gl.uniform2f(advectionProgram.uniforms.texelSize, 1.0 / dyeWidth, 1.0 / dyeHeight);
     gl.uniform1i(advectionProgram.uniforms.uVelocity, velocity.read.attach(0));
     gl.uniform1i(advectionProgram.uniforms.uSource, dye.read.attach(1));
@@ -713,27 +732,25 @@ function updateDye (dt) {
     blit(dye.write.fbo);
     dye.swap();
 
-    // Render final dye texture to screen
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     displayMaterial.bind();
     gl.uniform1i(displayMaterial.uniforms.uTexture, dye.read.attach(0));
-    blit(null); // Blit to screen (null FBO)
+    blit(null);
 }
 
 function applyInputs () {
     splatStack.forEach(splat => {
-        // In this simplified version, we only handle one pointer (mouse)
         if(splat.pointers.length > 0) {
              const pointer = splat.pointers[0];
              if (pointer.moved) {
                 splatDensity(pointer.texcoordX, pointer.texcoordY, pointer.deltaX, pointer.deltaY, pointer.color);
                 splatVelocity(pointer.texcoordX, pointer.texcoordY, pointer.deltaX, pointer.deltaY);
-                pointer.moved = false; // Reset moved flag
+                pointer.moved = false;
              }
         }
     });
-    splatStack.length = 0; // Clear stack after processing
+    splatStack.length = 0;
 }
 
 function splatVelocity (x, y, dx, dy) {
@@ -741,8 +758,7 @@ function splatVelocity (x, y, dx, dy) {
     splatProgram.bind();
     gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
     gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
-    gl.uniform2f(splatProgram.uniforms.point, x, 1.0 - y); // Invert Y for texture coords
-    // Use scaled mouse delta directly for force
+    gl.uniform2f(splatProgram.uniforms.point, x, 1.0 - y);
     gl.uniform3f(splatProgram.uniforms.color, dx * config.SPLAT_FORCE, -dy * config.SPLAT_FORCE, 0.0);
     gl.uniform1f(splatProgram.uniforms.radius, config.SPLAT_RADIUS / 100.0);
     blit(velocity.write.fbo);
@@ -751,50 +767,56 @@ function splatVelocity (x, y, dx, dy) {
 
 function splatDensity (x, y, dx, dy, color) {
     gl.viewport(0, 0, dyeWidth, dyeHeight);
-    splatProgram.bind(); // Re-use splat shader
+    splatProgram.bind();
     gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
     gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
-    gl.uniform2f(splatProgram.uniforms.point, x, 1.0 - y); // Invert Y for texture coords
-    // Use DENSITY_INTENSITY and SMOKE_BRIGHTNESS from config
+    gl.uniform2f(splatProgram.uniforms.point, x, 1.0 - y);
     const baseBrightness = config.SMOKE_BRIGHTNESS;
-    gl.uniform3f(splatProgram.uniforms.color, 
-        baseBrightness * config.DENSITY_INTENSITY, // Assuming color[0] was just a placeholder for grayscale
-        baseBrightness * config.DENSITY_INTENSITY, 
+    gl.uniform3f(splatProgram.uniforms.color,
+        baseBrightness * config.DENSITY_INTENSITY,
+        baseBrightness * config.DENSITY_INTENSITY,
         baseBrightness * config.DENSITY_INTENSITY);
     gl.uniform1f(splatProgram.uniforms.radius, config.SPLAT_RADIUS / 100.0);
     blit(dye.write.fbo);
     dye.swap();
 }
 
-// Mouse interaction
+// Helper: get mouse/touch position relative to canvas
+function getCanvasRelativePos (clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: (clientX - rect.left) / rect.width,
+        y: (clientY - rect.top) / rect.height
+    };
+}
+
+// Mouse interaction — uses getBoundingClientRect for correct position in Webflow
 canvas.addEventListener('mousemove', (e) => {
     let pointer = pointers[0];
+    const pos = getCanvasRelativePos(e.clientX, e.clientY);
+
     pointer.moved = true;
-    // Use MOUSE_FORCE from config for scaling
-    pointer.deltaX = (e.clientX - pointer.texcoordX * canvas.width) * config.MOUSE_FORCE;
-    pointer.deltaY = (e.clientY - pointer.texcoordY * canvas.height) * config.MOUSE_FORCE;
-    // Update position
+    pointer.deltaX = (pos.x - pointer.texcoordX) * canvas.width * config.MOUSE_FORCE;
+    pointer.deltaY = (pos.y - pointer.texcoordY) * canvas.height * config.MOUSE_FORCE;
     pointer.prevTexcoordX = pointer.texcoordX;
     pointer.prevTexcoordY = pointer.texcoordY;
-    pointer.texcoordX = e.clientX / canvas.width;
-    pointer.texcoordY = e.clientY / canvas.height;
+    pointer.texcoordX = pos.x;
+    pointer.texcoordY = pos.y;
 
-    // Add splat command to the stack for processing in the update loop
-    // Ensures only one splat per frame even with rapid mouse movements
     if (splatStack.length === 0) {
         splatStack.push({ amount: 1, pointers: [pointer] });
     }
 });
 
-// Basic touch handling (optional, can be expanded)
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const touches = e.targetTouches;
     if (touches.length > 0) {
-        let pointer = pointers[0]; // Use the main pointer for the first touch
-        pointer.moved = false; // Reset moved flag on new touch
-        pointer.texcoordX = touches[0].pageX / canvas.width;
-        pointer.texcoordY = touches[0].pageY / canvas.height;
+        let pointer = pointers[0];
+        const pos = getCanvasRelativePos(touches[0].clientX, touches[0].clientY);
+        pointer.moved = false;
+        pointer.texcoordX = pos.x;
+        pointer.texcoordY = pos.y;
         pointer.prevTexcoordX = pointer.texcoordX;
         pointer.prevTexcoordY = pointer.texcoordY;
     }
@@ -805,15 +827,14 @@ canvas.addEventListener('touchmove', (e) => {
     const touches = e.targetTouches;
     if (touches.length > 0) {
         let pointer = pointers[0];
+        const pos = getCanvasRelativePos(touches[0].clientX, touches[0].clientY);
         pointer.moved = true;
-        let currentX = touches[0].pageX / canvas.width;
-        let currentY = touches[0].pageY / canvas.height;
-        pointer.deltaX = (currentX - pointer.texcoordX) * 10.0; // Amplify touch delta
-        pointer.deltaY = (currentY - pointer.texcoordY) * 10.0;
+        pointer.deltaX = (pos.x - pointer.texcoordX) * 10.0;
+        pointer.deltaY = (pos.y - pointer.texcoordY) * 10.0;
         pointer.prevTexcoordX = pointer.texcoordX;
         pointer.prevTexcoordY = pointer.texcoordY;
-        pointer.texcoordX = currentX;
-        pointer.texcoordY = currentY;
+        pointer.texcoordX = pos.x;
+        pointer.texcoordY = pos.y;
 
         if (splatStack.length === 0) {
             splatStack.push({ amount: 1, pointers: [pointer] });
@@ -827,73 +848,54 @@ function hashCode (s) {
     let hash = 0;
     for (let i = 0; i < s.length; i++) {
         hash = (hash << 5) - hash + s.charCodeAt(i);
-        hash |= 0; // Convert to 32bit integer
+        hash |= 0;
     }
     return hash;
-};
-
-// GUI Setup
-const gui = new dat.GUI({ width: 300 });
-gui.add(config, 'DENSITY_DISSIPATION', 0.9, 1.0).name('Density Dissipation');
-gui.add(config, 'VELOCITY_DISSIPATION', 0.9, 1.0).name('Velocity Dissipation');
-gui.add(config, 'PRESSURE', 0.0, 1.0).name('Pressure');
-gui.add(config, 'SPLAT_RADIUS', 0.01, 1.0).name('Splat Radius');
-gui.add(config, 'DENSITY_INTENSITY', 0.0, 0.5).name('Density Intensity');
-gui.add(config, 'MOUSE_FORCE', 0.0, 10.0).name('Mouse Force');
-gui.add(config, 'SMOKE_BRIGHTNESS', 0.0, 1.0).name('Smoke Brightness'); // New slider
-
-// Function to log current config values
-function logConfigValues() {
-    const relevantConfig = {
-        DENSITY_DISSIPATION: config.DENSITY_DISSIPATION,
-        VELOCITY_DISSIPATION: config.VELOCITY_DISSIPATION,
-        PRESSURE: config.PRESSURE,
-        SPLAT_RADIUS: config.SPLAT_RADIUS,
-        DENSITY_INTENSITY: config.DENSITY_INTENSITY,
-        MOUSE_FORCE: config.MOUSE_FORCE,
-        SMOKE_BRIGHTNESS: config.SMOKE_BRIGHTNESS // Added log value
-    };
-    console.log("Current Config Values:");
-    console.log(JSON.stringify(relevantConfig, null, 2));
 }
 
-// Add Log Button to GUI
-gui.add({ log: logConfigValues }, 'log').name("Log Current Values");
+// GUI Setup — only shown when data-show-gui is not "false"
+let gui = null;
+if (showGui && typeof dat !== 'undefined') {
+    gui = new dat.GUI({ width: 300 });
+    gui.add(config, 'DENSITY_DISSIPATION', 0.9, 1.0).name('Density Dissipation');
+    gui.add(config, 'VELOCITY_DISSIPATION', 0.9, 1.0).name('Velocity Dissipation');
+    gui.add(config, 'PRESSURE', 0.0, 1.0).name('Pressure');
+    gui.add(config, 'SPLAT_RADIUS', 0.01, 1.0).name('Splat Radius');
+    gui.add(config, 'DENSITY_INTENSITY', 0.0, 0.5).name('Density Intensity');
+    gui.add(config, 'MOUSE_FORCE', 0.0, 10.0).name('Mouse Force');
+    gui.add(config, 'SMOKE_BRIGHTNESS', 0.0, 1.0).name('Smoke Brightness');
 
-// Reset Function
-function resetSimulation() {
-    // Reset config values to defaults
-    for (const key in defaultConfig) {
-        if (config.hasOwnProperty(key)) {
-            config[key] = defaultConfig[key];
+    gui.add({ log: function () {
+        console.log("Current Config Values:");
+        console.log(JSON.stringify({
+            DENSITY_DISSIPATION: config.DENSITY_DISSIPATION,
+            VELOCITY_DISSIPATION: config.VELOCITY_DISSIPATION,
+            PRESSURE: config.PRESSURE,
+            SPLAT_RADIUS: config.SPLAT_RADIUS,
+            DENSITY_INTENSITY: config.DENSITY_INTENSITY,
+            MOUSE_FORCE: config.MOUSE_FORCE,
+            SMOKE_BRIGHTNESS: config.SMOKE_BRIGHTNESS
+        }, null, 2));
+    }}, 'log').name("Log Current Values");
+
+    gui.add({ reset: function () {
+        for (const key in defaultConfig) {
+            if (config.hasOwnProperty(key)) {
+                config[key] = defaultConfig[key];
+            }
         }
-    }
-
-    // Update GUI controllers
-    for (let i in gui.__controllers) {
-        gui.__controllers[i].updateDisplay();
-    }
-
-    // Clear dye framebuffers
-    clearProgram.bind();
-    gl.uniform1i(clearProgram.uniforms.uTexture, dye.read.attach(0));
-    gl.uniform1f(clearProgram.uniforms.value, 0.0); // Clear to black
-    blit(dye.write.fbo);
-
-    gl.uniform1i(clearProgram.uniforms.uTexture, dye.write.attach(0));
-    gl.uniform1f(clearProgram.uniforms.value, 0.0);
-    blit(dye.read.fbo); // Clear the other buffer too
-
-    // Optional: Clear velocity too if needed
-    // gl.uniform1i(clearProgram.uniforms.uTexture, velocity.read.attach(0));
-    // gl.uniform1f(clearProgram.uniforms.value, 0.0);
-    // blit(velocity.write.fbo);
-    // gl.uniform1i(clearProgram.uniforms.uTexture, velocity.write.attach(0));
-    // gl.uniform1f(clearProgram.uniforms.value, 0.0);
-    // blit(velocity.read.fbo);
-
-    console.log('Simulation and Config Reset to Defaults');
+        for (let i in gui.__controllers) {
+            gui.__controllers[i].updateDisplay();
+        }
+        clearProgram.bind();
+        gl.uniform1i(clearProgram.uniforms.uTexture, dye.read.attach(0));
+        gl.uniform1f(clearProgram.uniforms.value, 0.0);
+        blit(dye.write.fbo);
+        gl.uniform1i(clearProgram.uniforms.uTexture, dye.write.attach(0));
+        gl.uniform1f(clearProgram.uniforms.value, 0.0);
+        blit(dye.read.fbo);
+        console.log('Simulation and Config Reset to Defaults');
+    }}, 'reset').name("Reset Simulation");
 }
 
-gui.add({ reset: resetSimulation }, 'reset').name("Reset Simulation");
-
+})();
