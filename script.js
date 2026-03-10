@@ -6,13 +6,13 @@ canvas.height = canvas.clientHeight;
 
 // Define default config values separately
 const defaultConfig = {
-    DENSITY_DISSIPATION: 0.98, // From user image
-    VELOCITY_DISSIPATION: 1.0, // From user image
-    PRESSURE: 1.0, // From user image
-    SPLAT_RADIUS: 0.4, // From user image
-    DENSITY_INTENSITY: 0.03, // From user image
-    MOUSE_FORCE: 10.0, // From user image
-    SMOKE_BRIGHTNESS: 0.75 // From user image
+    DENSITY_DISSIPATION: 0.99,
+    VELOCITY_DISSIPATION: 1.0,
+    PRESSURE: 0.9,
+    SPLAT_RADIUS: 0.4,
+    DENSITY_INTENSITY: 0.012,
+    MOUSE_FORCE: 10.0,
+    SMOKE_BRIGHTNESS: 1.0
 };
 
 // Apply defaults initially to the main config
@@ -897,35 +897,3 @@ function resetSimulation() {
 
 gui.add({ reset: resetSimulation }, 'reset').name("Reset Simulation");
 
-// --- Toggle Button Logic ---
-const bodyElement = document.body;
-const canvasElement = document.getElementById('glcanvas');
-const toggleBgBtn = document.getElementById('toggleBgButton');
-const toggleCursorBtn = document.getElementById('toggleCursorButton');
-
-if (toggleBgBtn) {
-    toggleBgBtn.addEventListener('click', () => {
-        bodyElement.classList.toggle('no-background');
-        // Update button text
-        if (bodyElement.classList.contains('no-background')) {
-            toggleBgBtn.textContent = 'Show Background';
-        } else {
-            toggleBgBtn.textContent = 'Hide Background';
-        }
-    });
-}
-
-if (toggleCursorBtn) {
-    toggleCursorBtn.addEventListener('click', () => {
-        canvasElement.classList.toggle('default-cursor');
-        // Update button text
-        if (canvasElement.classList.contains('default-cursor')) {
-            toggleCursorBtn.textContent = 'Use Joint Cursor';
-        } else {
-            toggleCursorBtn.textContent = 'Use Default Cursor';
-        }
-    });
-}
-
-// Initial setup call - already called after blit definition
-// initFramebuffers(); // No need to call again here
