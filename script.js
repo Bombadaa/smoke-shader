@@ -14,6 +14,7 @@
 //   data-density-intensity="0.012"
 //   data-mouse-force="10"
 //   data-smoke-brightness="1"
+//   data-touch-boost="5"       (multiplier for touch, since fewer events fire)
 //   data-show-gui="false"
 // ============================================================
 const DEFAULTS = {
@@ -57,6 +58,10 @@ const defaultConfig = {
 const showGui = container
     ? (container.getAttribute('data-show-gui') || 'true') !== 'false'
     : true;
+
+// Touch devices fire far fewer move events than mouse, so we boost
+// the density and force per touch event to compensate.
+const TOUCH_BOOST = readDataAttr('touch-boost', 5);
 
 // Size canvas to container
 canvas.width = canvas.clientWidth;
@@ -834,8 +839,9 @@ canvas.addEventListener('touchmove', (e) => {
         let pointer = pointers[0];
         const pos = getCanvasRelativePos(touches[0].clientX, touches[0].clientY);
         pointer.moved = true;
-        pointer.deltaX = (pos.x - pointer.texcoordX) * canvas.width * config.MOUSE_FORCE;
-        pointer.deltaY = (pos.y - pointer.texcoordY) * canvas.height * config.MOUSE_FORCE;
+        // TOUCH_BOOST compensates for fewer touch events vs mouse events
+        pointer.deltaX = (pos.x - pointer.texcoordX) * canvas.width * config.MOUSE_FORCE * TOUCH_BOOST;
+        pointer.deltaY = (pos.y - pointer.texcoordY) * canvas.height * config.MOUSE_FORCE * TOUCH_BOOST;
         pointer.prevTexcoordX = pointer.texcoordX;
         pointer.prevTexcoordY = pointer.texcoordY;
         pointer.texcoordX = pos.x;
