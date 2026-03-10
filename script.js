@@ -30,7 +30,12 @@ const DEFAULTS = {
 const canvas = document.getElementById('glcanvas');
 if (!canvas) return;
 
-const container = canvas.parentElement;
+// Traverse up the DOM to find the container with data- attributes.
+// Webflow wraps Embeds in a .w-embed div, so canvas.parentElement
+// won't have the attributes — we need to search upward.
+const container = canvas.closest('[data-show-gui]')
+    || canvas.closest('[data-density-dissipation]')
+    || canvas.parentElement;
 
 // Read data- attributes from container to override defaults
 function readDataAttr(name, fallback) {
